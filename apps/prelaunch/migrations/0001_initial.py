@@ -21,6 +21,9 @@ class Migration(migrations.Migration):
                 ('last_name', models.CharField(blank=True, max_length=64)),
                 ('email', models.EmailField(blank=True, max_length=254, null=True)),
                 ('created_on', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('early_access', models.BooleanField(default=False)),
+                ('early_access_code', models.CharField(max_length=64, unique=True, null=True)),
                 ('site', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='sites.site')),
             ],
             options={
