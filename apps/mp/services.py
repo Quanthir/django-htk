@@ -2,12 +2,11 @@
 # Future Imports
 from __future__ import absolute_import
 
-import contextlib
-import logging
-import threading
+# Python Standard Library Imports
 import time
 import traceback
 import weakref
+from builtins import str
 from collections import defaultdict
 from functools import partial
 
@@ -17,13 +16,15 @@ import rollbar
 # Django Imports
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import ProgrammingError
 from django.db import models
 from django.db.models import signals
 
 # HTK Imports
 from htk.apps.mp.signals import priority_connect
 from htk.apps.mp.utils import format_model_name
+
+
+# isort: off
 
 
 EXTRA_VERBOSITY = False
@@ -118,11 +119,13 @@ class MaterializedPropertySubstitution(object):
             if isinstance(self.field_definition, models.CharField) or \
                     isinstance(self.field_definition, models.TextField):
                 is_set_q = {self.field_name: MAGIC_VALUE_NOT_SET_STRING}
-                is_magic = lambda x: x == MAGIC_VALUE_NOT_SET_STRING
+
+                def is_magic(x): return x == MAGIC_VALUE_NOT_SET_STRING
                 self.field_definition.default = MAGIC_VALUE_NOT_SET_STRING
             else:
                 is_set_q = {self.field_name + '__isnull': True}
-                is_magic = lambda x: x is None
+
+                def is_magic(x): return x is None
                 self.field_definition.null = True
             self.is_not_set = lambda x: is_magic(getattr(x, self.field_name))
         else:
@@ -135,10 +138,10 @@ class MaterializedPropertySubstitution(object):
                     try:
                         extra_data['all_field_names'] = ','.join(type(instance)._meta.get_all_field_names())
                         extra_data['stacktrace'] = '\n'.join(('%s, %s, %s, %s' % x for x in traceback.extract_stack()))
-                    except:
+                    except Exception:
                         rollbar.report_exc_info(
                             extra_data={
-                                'message' : 'Failed to evaluate extra_data for MP {} report'.format(name),
+                                'message': 'Failed to evaluate extra_data for MP {} report'.format(name),
                             }
                         )
                     rollbar.report_message(
@@ -158,7 +161,10 @@ class MaterializedPropertySubstitution(object):
             real = self.f(instance)
             if not self.no_auto_back_fill and not self.use_is_set_field and is_magic(real):
                 rollbar.report_message(
-                    'Real value returned by {}(pk={})::{} same as MAGIC_VALUE_NOT_SET, will cause cache miss (can impact performance)'.format(
+                    (
+                        'Real value returned by {}(pk={})::{} same as MAGIC_VALUE_NOT_SET, '
+                        'will cause cache miss (can impact performance)'
+                    ).format(
                         cls.__name__,
                         instance.pk,
                         self.name
@@ -219,10 +225,10 @@ class MaterializedPropertySubstitution(object):
                 return x == y
             try:
                 return self.field_definition.format_number(x) == self.field_definition.format_number(y)
-            except:
+            except Exception:
                 rollbar.report_exc_info(
                     extra_data={
-                        'message' : 'Failed to compare values for mp {}.{}, fallback to =='.format(self.cls, self.name),
+                        'message': 'Failed to compare values for mp {}.{}, fallback to =='.format(self.cls, self.name),
                         'x': x,
                         'y': y
                     }
@@ -246,7 +252,7 @@ class MaterializedPropertySubstitution(object):
                 dependent_models[model].add(attr)
                 if attr != '*':
                     try:
-                        field = model._meta.get_field(attr)
+                        model._meta.get_field(attr)
                     except models.FieldDoesNotExist:
                         message = 'MP {}.{} has dependency {} of attribute {} that is not a field or mp on {}'.format(
                             self.cls.__name__,
@@ -258,12 +264,15 @@ class MaterializedPropertySubstitution(object):
                         raise Exception(message)
                 if model in paths:
                     if paths[model] != path:
-                        message = 'Model {} (dependent for {}) is accessible by dependents by using different paths {} and {}, which is not supported now'.format(
-                                model,
-                                self.cls,
-                                paths[model],
-                                path
-                            )
+                        message = (
+                            'Model {} (dependent for {}) is accessible by dependents by using different '
+                            'paths {} and {}, which is not supported now'
+                        ).format(
+                            model,
+                            self.cls,
+                            paths[model],
+                            path
+                        )
 
                         raise Exception(message)
                 else:
@@ -296,6 +305,7 @@ class MaterializedPropertySubstitution(object):
                 )
 
     def store_mp_or_async(self, resolved_instance, source=None, save=True, force=None, changed_only=True):
+        # HTK Imports
         from htk.apps.mp.tasks import async_store_mp
         if self.eventually_consistent:
             cls = type(resolved_instance)
@@ -353,7 +363,16 @@ class MaterializedPropertySubstitution(object):
         return 'MaterializedProperty {} on {}'.format(self.name, self.cls.__name__)
 
     def connect_receiver(self, model, path, depends_on):
-        def change_receiver(instance, signame, update_fields=None, save=True, force=None, second_check=False, *args, **kwargs):
+        def change_receiver(
+            instance,
+            signame,
+            update_fields=None,
+            save=True,
+            force=None,
+            second_check=False,
+            *args,
+            **kwargs
+        ):
             source = '%s receiver %s, path %s, update_fields %s' % (signame, fmt(instance), path, update_fields)
             if '*' not in depends_on and update_fields is not None and not (set(update_fields) & depends_on):
                 return
@@ -364,7 +383,13 @@ class MaterializedPropertySubstitution(object):
                 if second_check:
                     old_resolved_instance = resolved_instance
                     resolved_instance = resolved_instance._meta.model.objects.get(pk=resolved_instance.pk)
-                self.store_mp_or_async(resolved_instance, source=source, save=save, force=force, changed_only=second_check)
+                self.store_mp_or_async(
+                    resolved_instance,
+                    source=source,
+                    save=save,
+                    force=force,
+                    changed_only=second_check
+                )
                 if old_resolved_instance:
                     setattr(old_resolved_instance, self.field_name, getattr(resolved_instance, self.field_name))
 
@@ -487,10 +512,10 @@ def invalidate_for_instance(instance, mps, save=False):
 
     Save immediately if `save == True`
     """
-    if isinstance(mps, basestring):
+    if isinstance(mps, str):
         mps = [mps]
     for mp in mps:
-        if isinstance(mp, basestring):
+        if isinstance(mp, str):
             model = instance._meta.model
             if model._meta.proxy:
                 model = model._meta.proxy_for_model
@@ -537,6 +562,7 @@ class Throttler(object):
             self.counter = 0
             time.sleep(1)
 
+
 NOP_THROTTLER = Throttler(0)
 
 
@@ -550,7 +576,7 @@ def test_mp(
         log_err=default_exception,
         throttler=NOP_THROTTLER
 ):
-    if isinstance(mp, basestring):
+    if isinstance(mp, str):
         mp_name = mp
         mp = registered_mps[model].get(mp_name, None)
         if not mp:
@@ -558,7 +584,7 @@ def test_mp(
     total = 0
     failed = 0
     not_set = 0
-    attr_name = mp.field_name
+    # attr_name = mp.field_name
     suspects = []
 
     pk_name = model._meta.pk.name
@@ -575,10 +601,10 @@ def test_mp(
             throttler.throttle()
             try:
                 invalidate_for_instance(instance, mp.name, save=True)
-            except:
+            except Exception:
                 rollbar.report_exc_info(
                     extra={
-                        'message' : 'Invalidation failed in test_mp',
+                        'message': 'Invalidation failed in test_mp',
                         'model': model.__name__,
                         'suspect_pk': suspect_pk
                     }
@@ -591,9 +617,9 @@ def test_mp(
 def extract_stack_safe():
     try:
         stack = '\n'.join(('%s, %s, %s, %s' % x for x in traceback.extract_stack()))
-    except:
+    except Exception:
         rollbar.report_exc_info(extra_data={
-            'message' : 'Failed to get stack trace for MP warning'
+            'message': 'Failed to get stack trace for MP warning'
         })
         stack = '<stack unknown>'
     return stack
