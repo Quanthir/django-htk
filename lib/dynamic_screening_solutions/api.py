@@ -2,29 +2,40 @@
 import hashlib
 import hmac
 import time
+from urllib.parse import urlparse
 
 # Third Party (PyPI) Imports
 import requests
 import rollbar
 
 # HTK Imports
-from htk.lib.dynamic_screening_solutions.constants import *
+from htk.lib.dynamic_screening_solutions.constants import (
+    DSS_321FORMS_API_RESOURCE_COMPANY,
+    DSS_321FORMS_API_RESOURCE_COMPANY_DIVISIONS,
+    DSS_321FORMS_API_RESOURCE_COMPANY_FORM,
+    DSS_321FORMS_API_RESOURCE_COMPANY_FORMS,
+    DSS_321FORMS_API_RESOURCE_COMPANY_USERS,
+    DSS_321FORMS_API_RESOURCE_COMPANY_WEBHOOK,
+    DSS_321FORMS_API_RESOURCE_COMPANY_WEBHOOK_TOPICS,
+    DSS_321FORMS_API_RESOURCE_COMPANY_WEBHOOKS,
+    DSS_321FORMS_API_RESOURCE_DIVISION_FORMS,
+    DSS_321FORMS_API_RESOURCE_SSO_ENDPOINT,
+    DSS_321FORMS_API_RESOURCE_SSO_GENERATE,
+    DSS_321FORMS_API_RESOURCE_USER,
+    DSS_321FORMS_API_RESOURCE_USER_EVERIFY,
+    DSS_321FORMS_API_RESOURCE_USER_FORM,
+    DSS_321FORMS_API_RESOURCE_USER_FORMS,
+    DSS_321FORMS_API_RESOURCE_USER_RESPONSES,
+    DSS_321FORMS_API_USER_TYPE_EMPLOYEE,
+    DSS_321FORMS_API_USER_TYPE_EMPLOYEE_COMPLETE,
+    DSS_321FORMS_API_USER_TYPE_HR_ADMIN,
+    DSS_321FORMS_API_USER_TYPE_HR_STAFF,
+)
 from htk.utils import (
     htk_setting,
     utcnow,
 )
 from htk.utils.request import get_current_request
-
-
-# isort: off
-
-
-# Python 2 to 3 compatable import
-# See: https://python-future.org/compatible_idioms.html#urllib-module
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    import urlparse
 
 
 MAX_RETRY_ATTEMPTS = 5
@@ -55,6 +66,7 @@ class Htk321FormsAPI(object):
 
         Secret key-hashed Base64
         """
+        # Python Standard Library Imports
         import base64
         base_string = '{"Username":"%s","SentDate":"%s","Action":"%s"}' % (
             headers['Username'],
@@ -303,7 +315,11 @@ class Htk321FormsAPI(object):
 
         done = False
         while not done:
-            request_url = self.get_request_url(resource_path=DSS_321FORMS_API_RESOURCE_COMPANY) + ("?limit=%s&offset=%s" % (limit, offset,))
+            request_url = self.get_request_url(
+                resource_path=DSS_321FORMS_API_RESOURCE_COMPANY
+            ) + (
+                "?limit=%s&offset=%s" % (limit, offset,)
+            )
             response_json = self.request_get(request_url)
             companies = response_json or []
             all_companies.extend(companies)
