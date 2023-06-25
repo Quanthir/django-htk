@@ -5,12 +5,20 @@ from functools import wraps
 import rollbar
 
 # Django Imports
+from django.http import (
+    HttpResponseForbidden,
+    HttpResponseNotFound,
+)
 from django.shortcuts import (
     get_object_or_404,
     redirect,
 )
 
 # HTK Imports
+from htk.api.utils import (
+    json_response_forbidden,
+    json_response_not_found,
+)
 from htk.decorators.session_keys import DEPRECATED_ROLLBAR_NOTIFIED
 from htk.utils.request import get_current_request
 
@@ -70,6 +78,38 @@ class restful_obj_seo_redirect(object):
                 response = view_fn(*args, **kwargs)
             return response
         return wrapped
+
+
+class content_type_based(object):
+    """Abstract Content Type Based Decorator
+    
+    Helps to create decorators based on content type to response.
+    """
+    def __init__(self, content_type='text/html'):
+        self.content_type = content_type
+
+    @property
+    def is_ajax_request(self):
+        value = self.content_type == 'application/json'
+        return value
+
+    @property
+    def response_not_found(self):
+        response = (
+            json_response_not_found()
+            if self.is_ajax_request
+            else HttpResponseNotFound()
+        )
+        return response
+
+    @property
+    def response_forbidden(self):
+        response = (
+            json_response_forbidden()
+            if self.is_ajax_request
+            else HttpResponseForbidden()
+        )
+        return response
 
 
 def disable_for_loaddata(signal_handler):
